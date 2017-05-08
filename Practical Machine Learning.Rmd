@@ -20,15 +20,19 @@ library(pROC)
 
 ```
 
-## R Markdown
+## Executive Summary
 
-For this assignment, we were required to analyze exercise data to evaluate an appropriate predictie model to "grade" an individuals activity based on several variables.  To complete this, we first had to load necessary libraries and then read in both the training and testing data (we are not showing code for this project for security purposes).
+For this assignment, we were required to analyze exercise data to evaluate an appropriate predictive model to "grade" an individual's activity based on several variables.  To complete this, we first had to load necessary libraries and then read in both the training and testing data (we are not showing code for this project for security purposes).
 
 The next step involved creating a sample from the training data to fit various models. 70% of our data was selected to fit models, while the remaining 30% of our data was used to validate the models. It was important to be aware of what columns contained data in the testing set so that we did not construct a model based on attributes for which we did not have values.  Therefore, we only kept columns from our training set that were also valid for our testing set (which we refer to as our "revised training set").
 
 After "cleaning" our training data, we fit several different types of models including random forest (rf), gradient boost and adaboost (gba), SVM, KNN, and K-means.  Based on the accuracy of these models, some were selected as "good fits" while others were discarded based on poor outcome predictions when run through the validation data set.
+
+Lastly, we took an ensemble/blended models approeach to see if we could find an optimal weighting of our good models to further reduce the mean squared error without overfitting.  To blend models it was necessary to convert factors to numeric format so that we could generate a quantitative output/score. We found through doing this additional step that we slightly improved our predicted values, but not significantly.
+
+Based on our selected "best" model, we could then predict the grade for each record using the data provided in the testing file.
 ```{r, echo=FALSE}
-trainmaster<-read.csv("pml-training.csv", header=TRUE)
+trainmaster<-read.csv("pml-training.csv",header=TRUE)
 testmaster<-read.csv("pml-testing.csv",header=TRUE)
 
 #str(trainmaster)
@@ -44,18 +48,44 @@ fitrev<-train(classe ~ ., data=trainingrev, method="rf")
 resultsrev<-predict(fitrev,newdata=validation)
 j<-confusionMatrix(resultsrev, validation$classe)
 
+set.seed(499)# also very good model
+fit11rev<-train(classe ~ ., data=trainingrev, method="gbm")
+results11rev<-predict(fit11rev,newdata=validation)
+k<-confusionMatrix(results11rev, validation$classe)
 
+resultsrfnum<-as.numeric(resultsrev)
+resultsgbmnum<-as.numeric(results11rev)
+predDF<-data.frame(x1=resultsrfnum, x2=resultsgbmnum, actual=as.numeric(validation$classe))
+set.seed(499)
+hope<-lm(actual ~., data=predDF)
+resultscomb<-predict(hope,predDF)
+best<-floor(resultscomb)
 
 
 ```
 
 ## Metrics
 
-Below is an example of the output from one of the better models.  We see the accuracy is over 84%
+Below is an example of the output from one of the better models.  We see the accuracy is fairly high.
 
 ```{r, echo=FALSE}
 j$table
 j$overall
+hope
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+The following list summarizes the squared error of various models--Random Forest, GBM, and Blended, respectfully:
+
+```{r, echo=FALSE}
+sum((as.numeric(resultsrev)-as.numeric(validation$classe))^2)
+
+sum((as.numeric(results11rev)-as.numeric(validation$classe))^2)
+
+sum((best-as.numeric(validation$classe))^2)
+```
+The following plots show output for our three models (rf, gbm, and blended).  We based our final selection on that model producing the lowest mean squared error.
+
+```{r, echo=FALSE}
+plot(fit11rev)
+plot(fitrev)
+plot(hope)
