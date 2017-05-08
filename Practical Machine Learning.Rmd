@@ -1,0 +1,61 @@
+---
+title: "Practical Machine Learning"
+author: "tldc01"
+date: "May 8, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(caret)
+library(utils)
+library(kernlab)
+library(ISLR)
+library(gam)
+library(ROCR)
+library(caretEnsemble)
+library(e1071)
+library(pROC)
+
+
+```
+
+## R Markdown
+
+For this assignment, we were required to analyze exercise data to evaluate an appropriate predictie model to "grade" an individuals activity based on several variables.  To complete this, we first had to load necessary libraries and then read in both the training and testing data (we are not showing code for this project for security purposes).
+
+The next step involved creating a sample from the training data to fit various models. 70% of our data was selected to fit models, while the remaining 30% of our data was used to validate the models. It was important to be aware of what columns contained data in the testing set so that we did not construct a model based on attributes for which we did not have values.  Therefore, we only kept columns from our training set that were also valid for our testing set (which we refer to as our "revised training set").
+
+After "cleaning" our training data, we fit several different types of models including random forest (rf), gradient boost and adaboost (gba), SVM, KNN, and K-means.  Based on the accuracy of these models, some were selected as "good fits" while others were discarded based on poor outcome predictions when run through the validation data set.
+```{r, echo=FALSE}
+trainmaster<-read.csv("pml-training.csv", header=TRUE)
+testmaster<-read.csv("pml-testing.csv",header=TRUE)
+
+#str(trainmaster)
+trainmaster2<-na.omit(trainmaster)
+inTrain<-createDataPartition(y=trainmaster2$classe, p=0.7, list=FALSE)
+training<-trainmaster2[inTrain,]
+validation<-trainmaster2[-inTrain,]
+## keep only those columns with data in the testing set
+trainingrev<-training[,c(2:11,37:49,60:68,84:86,102,113:124,140,151:160)]
+
+set.seed(499)# very good model
+fitrev<-train(classe ~ ., data=trainingrev, method="rf")
+resultsrev<-predict(fitrev,newdata=validation)
+j<-confusionMatrix(resultsrev, validation$classe)
+
+
+
+
+```
+
+## Metrics
+
+Below is an example of the output from one of the better models.  We see the accuracy is over 84%
+
+```{r, echo=FALSE}
+j$table
+j$overall
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
